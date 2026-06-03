@@ -313,6 +313,7 @@ declare namespace App {
     type Schema = {
       system: {
         title: string;
+        desc: string;
         updateTitle: string;
         updateContent: string;
         updateConfirm: string;

@@ -1,90 +1,159 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import type { Component } from 'vue';
-import { getPaletteColorByNumber, mixColor } from '@sa/color';
-import { loginModuleRecord } from '@/constants/app';
+import { computed, reactive } from 'vue';
 import { useAppStore } from '@/store/modules/app';
 import { useThemeStore } from '@/store/modules/theme';
+import { useAuthStore } from '@/store/modules/auth';
+import { useFormRules, useNaiveForm } from '@/hooks/common/form';
 import { $t } from '@/locales';
-import PwdLogin from './modules/pwd-login.vue';
-import CodeLogin from './modules/code-login.vue';
-import Register from './modules/register.vue';
-import ResetPwd from './modules/reset-pwd.vue';
-import BindWechat from './modules/bind-wechat.vue';
 
-interface Props {
-  /** The login module */
-  module?: UnionKey.LoginModule;
-}
-
-const props = defineProps<Props>();
+defineOptions({
+  name: 'LoginPage'
+});
 
 const appStore = useAppStore();
 const themeStore = useThemeStore();
+const authStore = useAuthStore();
+const { formRef, validate } = useNaiveForm();
 
-interface LoginModule {
-  label: App.I18n.I18nKey;
-  component: Component;
+interface FormModel {
+  userName: string;
+  password: string;
 }
 
-const moduleMap: Record<UnionKey.LoginModule, LoginModule> = {
-  'pwd-login': { label: loginModuleRecord['pwd-login'], component: PwdLogin },
-  'code-login': { label: loginModuleRecord['code-login'], component: CodeLogin },
-  register: { label: loginModuleRecord.register, component: Register },
-  'reset-pwd': { label: loginModuleRecord['reset-pwd'], component: ResetPwd },
-  'bind-wechat': { label: loginModuleRecord['bind-wechat'], component: BindWechat }
-};
-
-const activeModule = computed(() => moduleMap[props.module || 'pwd-login']);
-
-const bgThemeColor = computed(() =>
-  themeStore.darkMode ? getPaletteColorByNumber(themeStore.themeColor, 600) : themeStore.themeColor
-);
-
-const bgColor = computed(() => {
-  const COLOR_WHITE = '#ffffff';
-
-  const ratio = themeStore.darkMode ? 0.5 : 0.2;
-
-  return mixColor(COLOR_WHITE, themeStore.themeColor, ratio);
+const model: FormModel = reactive({
+  userName: '',
+  password: ''
 });
+
+const rules = computed<Record<keyof FormModel, App.Global.FormRule[]>>(() => {
+  const { formRules } = useFormRules();
+
+  return {
+    userName: formRules.userName,
+    password: formRules.pwd
+  };
+});
+
+async function handleSubmit() {
+  await validate();
+  await authStore.login(model.userName, model.password);
+}
 </script>
 
 <template>
-  <div class="relative size-full flex-center overflow-hidden" :style="{ backgroundColor: bgColor }">
-    <WaveBg :theme-color="bgThemeColor" />
-    <NCard :bordered="false" class="relative z-4 w-auto rd-12px">
-      <div class="w-400px lt-sm:w-300px">
-        <header class="flex-y-center justify-between">
-          <SystemLogo class="size-64px lt-sm:size-48px" />
-          <h3 class="text-28px text-primary font-500 lt-sm:text-22px">{{ $t('system.title') }}</h3>
-          <div class="i-flex-col">
-            <ThemeSchemaSwitch
-              :theme-schema="themeStore.themeScheme"
-              :show-tooltip="false"
-              class="text-20px lt-sm:text-18px"
-              @switch="themeStore.toggleThemeScheme"
-            />
-            <LangSwitch
-              v-if="themeStore.header.multilingual.visible"
-              :lang="appStore.locale"
-              :lang-options="appStore.localeOptions"
-              :show-tooltip="false"
-              @change-lang="appStore.changeLocale"
-            />
-          </div>
-        </header>
-        <main class="pt-24px">
-          <h3 class="text-18px text-primary font-medium">{{ $t(activeModule.label) }}</h3>
-          <div class="pt-24px">
-            <Transition :name="themeStore.page.animateMode" mode="out-in" appear>
-              <component :is="activeModule.component" />
-            </Transition>
-          </div>
-        </main>
+  <div class="relative h-full flex">
+    <!-- Left: Brand Panel -->
+    <div class="hidden w-1/2 flex-col items-center justify-center bg-primary relative overflow-hidden lg:flex">
+      <div class="absolute -top-40 -right-40 size-120 rounded-full bg-primary-400/20" />
+      <div class="absolute -bottom-20 -left-20 size-80 rounded-full bg-primary-600/15" />
+      <div class="absolute top-1/3 right-1/4 size-50 rounded-full bg-primary-300/10" />
+
+      <div class="relative z-1 flex flex-col items-center gap-24px">
+        <SystemLogo class="size-100px drop-shadow-lg" />
+        <div class="text-center">
+          <h1 class="text-36px font-700 text-white tracking-wider">
+            {{ $t('system.title') }}
+          </h1>
+          <p class="mt-8px text-16px text-white/70">
+            {{ $t('system.desc') }}
+          </p>
+        </div>
       </div>
-    </NCard>
+    </div>
+
+    <!-- Right: Login Form -->
+    <div class="flex-1 flex flex-col items-center justify-center bg-[var(--body-color)] p-24px">
+      <div class="mb-32px flex flex-col items-center lg:hidden">
+        <SystemLogo class="size-56px" />
+        <h2 class="mt-8px text-22px font-600 text-primary">{{ $t('system.title') }}</h2>
+      </div>
+
+      <div class="w-full max-w-400px">
+        <div class="mb-32px text-center lg:text-left">
+          <h2 class="text-28px font-700 text-(--text-color-1)">
+            {{ $t('system.title') }}
+          </h2>
+          <p class="mt-8px text-14px text-(--text-color-3)">
+            {{ $t('system.desc') }}
+          </p>
+        </div>
+
+        <NForm
+          ref="formRef"
+          :model="model"
+          :rules="rules"
+          size="large"
+          :show-label="false"
+          class="flex flex-col gap-20px"
+          @keyup.enter="handleSubmit"
+        >
+          <NFormItem path="userName">
+            <NInput
+              v-model:value="model.userName"
+              :placeholder="$t('page.login.common.userNamePlaceholder')"
+              :input-props="{ autocomplete: 'username' }"
+              class="h-48px!"
+            >
+              <template #prefix>
+                <span class="i-mdi:account-outline text-18px text-(--text-color-3)" />
+              </template>
+            </NInput>
+          </NFormItem>
+
+          <NFormItem path="password">
+            <NInput
+              v-model:value="model.password"
+              type="password"
+              show-password-on="click"
+              :placeholder="$t('page.login.common.passwordPlaceholder')"
+              :input-props="{ autocomplete: 'current-password' }"
+              class="h-48px!"
+            >
+              <template #prefix>
+                <span class="i-mdi:lock-outline text-18px text-(--text-color-3)" />
+              </template>
+            </NInput>
+          </NFormItem>
+
+          <NButton
+            type="primary"
+            size="large"
+            block
+            :loading="authStore.loginLoading"
+            class="h-48px! rounded-8px! text-16px! font-500!"
+            @click="handleSubmit"
+          >
+            {{ $t('common.confirm') }}
+          </NButton>
+        </NForm>
+
+        <div class="mt-24px flex-center gap-16px">
+          <ThemeSchemaSwitch
+            :theme-schema="themeStore.themeScheme"
+            class="text-20px"
+            @switch="themeStore.toggleThemeScheme"
+          />
+          <div class="h-16px w-1px bg-(--divider-color)" />
+          <LangSwitch
+            v-if="themeStore.header.multilingual.visible"
+            :lang="appStore.locale"
+            :lang-options="appStore.localeOptions"
+            @change-lang="appStore.changeLocale"
+          />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.bg-primary-400\/20 {
+  background-color: rgb(var(--primary-400-color) / 0.2);
+}
+.bg-primary-600\/15 {
+  background-color: rgb(var(--primary-600-color) / 0.15);
+}
+.bg-primary-300\/10 {
+  background-color: rgb(var(--primary-300-color) / 0.1);
+}
+</style>

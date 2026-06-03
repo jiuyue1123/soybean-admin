@@ -46,6 +46,7 @@ export const generatedRoutes: GeneratedRoute[] = [
     meta: {
       title: 'home',
       i18nKey: 'route.home',
+      constant: true,
       icon: 'mdi:monitor-dashboard',
       order: 1
     }
@@ -65,9 +66,8 @@ export const generatedRoutes: GeneratedRoute[] = [
   },
   {
     name: 'login',
-    path: '/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?',
+    path: '/login',
     component: 'layout.blank$view.login',
-    props: true,
     meta: {
       title: 'login',
       i18nKey: 'route.login',
